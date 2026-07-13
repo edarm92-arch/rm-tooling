@@ -1,5 +1,9 @@
 # rm-validate
 
+[![PyPI](https://img.shields.io/pypi/v/rm-validate.svg)](https://pypi.org/project/rm-validate/)
+[![CI](https://github.com/edarm92-arch/rm-tooling/actions/workflows/ci.yml/badge.svg)](https://github.com/edarm92-arch/rm-tooling/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 **A generic policy validator for the RM Method.** It reads a repo's own
 `rm-policy.yaml`, runs the checks that its declared capabilities gate plus a
 non-negotiable universal base, and reports `file · rule · value vs. limit ·
@@ -20,14 +24,14 @@ in the policy — the validator never guesses, and never silently skips.
 ## Install
 
 ```bash
-# from PyPI (once published)
+# recommended — isolated global CLI
+pipx install rm-validate
+
+# or plain pip
 pip install rm-validate
 
-# or straight from Git
-pip install "git+https://github.com/rm-tooling/rm-validate"
-
-# or run without installing
-uvx --from "git+https://github.com/rm-tooling/rm-validate" rm-validate check .
+# or from source (before the first PyPI release, or to track main)
+pipx install "git+https://github.com/edarm92-arch/rm-tooling"
 ```
 
 Only runtime dependency: **PyYAML**. Python 3.11+.
