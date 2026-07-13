@@ -4,6 +4,33 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] — Cierre del bypass de inferencia (fix de seguridad del harness)
+
+### Security
+- `inference.exclude` deja de existir como clave pública: permitía silenciar el
+  candado de capability-mismatch desde el mismo `rm-policy.yaml` que el candado
+  debe vigilar (`exclude: ["**"]` convertía un fail de integridad en exit 0).
+  Un `rm-policy.yaml` con la clave `inference:` ahora falla al cargar.
+- La inferencia dejó de honrar `modularity.exclude_globs`: excluir `migrations/`
+  ya no oculta evidencia del candado (la superficie de inferencia es fija).
+- Un glob de exclusión total (`**`, `*`, `.`) en cualquier lista de exclusión es
+  ahora error de config.
+- Toda exclusión declarada a mano se reporta (`WARNING inference_exclusion`); las
+  estructurales (node_modules, .venv, dist) siguen silenciosas.
+- `dependency_audit_hook` detecta steps de audit neutralizados (`|| true`,
+  `continue-on-error: true`, `|| exit 0`): un scanner que no puede fallar no
+  cuenta como scanner.
+- También se removió el override `inference_rules` del YAML (mismo vector: podía
+  neutralizar los patterns de detección desde el policy). Los patterns se mejoran
+  upstream, no se sobreescriben localmente.
+
+### Fixed
+- El auto-scan de rm-tooling (un scanner que se detectaba a sí mismo por sus
+  propios patterns) se resuelve con una deny-list interna del paquete, versionada
+  y aplicada solo a rm-tooling (paquete `rm_validate/` presente + `project:
+  rm-tooling`), no con configuración expuesta al consumidor.
+- CI propio: `pip-audit` corre sin `|| true`.
+
 ## [0.1.0] — rm-policy-validator inicial (público, Apache-2.0)
 
 ### Added

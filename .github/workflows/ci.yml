@@ -31,7 +31,10 @@ jobs:
         run: pytest -q
 
       - name: Dependency audit (supply chain)
-        run: pip-audit || true
+        # No `|| true`: the audit must be able to fail the build. If a known,
+        # accepted vuln must be tolerated, ignore it explicitly and comment why:
+        #   pip-audit --ignore-vuln GHSA-xxxx-xxxx-xxxx
+        run: pip-audit
 
       - name: Self-check (rm-validate check .)
         run: python -m rm_validate check .

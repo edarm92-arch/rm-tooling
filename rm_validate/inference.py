@@ -19,10 +19,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from rm_validate.globs import match_glob
-from rm_validate.profiles import ALL_CAPABILITIES
 
 # Capabilities are the truth of the *code*, so inference greps code and
 # dependency manifests — not prose (.md/.rst/.txt), where a doc may mention a
@@ -136,27 +134,33 @@ DEFAULT_RULES: tuple[CapabilityRule, ...] = (
 )
 
 
-def _rules_from_config(raw: dict[str, Any] | None) -> tuple[CapabilityRule, ...]:
-    """Allow a target repo to override inference signals (capabilities only)."""
-    if not raw:
-        return DEFAULT_RULES
-    override = raw.get("inference_rules")
-    if not isinstance(override, dict):
-        return DEFAULT_RULES
-    merged: list[CapabilityRule] = []
-    by_cap = {r.capability: r for r in DEFAULT_RULES}
-    for cap in ALL_CAPABILITIES:
-        spec = override.get(cap)
-        if not spec:
-            merged.append(by_cap[cap])
-            continue
-        signals: list[Signal] = []
-        for item in spec:
-            signals.append(
-                _s(str(item["kind"]), str(item["pattern"]), str(item.get("label", item["pattern"])))
-            )
-        merged.append(CapabilityRule(cap, tuple(signals)))
-    return tuple(merged)
+# Fixed structural excludes for inference — NOT consumer-configurable. A repo
+# must not be able to shrink the inference surface from its own policy: excluding
+# ``migrations/`` from the scan would hide evidence from the capability-mismatch
+# lock. Structural dirs (vendored deps, build output) are pure noise, so they are
+# excluded unconditionally and identically for every repo.
+_STRUCTURAL_EXCLUDES = (
+    "**/.git/**", "**/node_modules/**", "**/.venv/**", "**/venv/**",
+    "**/dist/**", "**/build/**", "**/__pycache__/**", "**/*.egg-info/**",
+)
+
+# Internal deny-list for rm-tooling's OWN self-scan. rm-tooling is a scanner: the
+# files below define its detection patterns (and its fixtures/samples echo them),
+# so they self-trigger inference. This is a single-repo special case, versioned
+# and reviewable in the package — NEVER a switch exposed to consumers. It applies
+# only when the target repo actually IS rm-tooling (the rm_validate package is
+# present AND project == rm-tooling), so a look-alike cannot inherit it by name.
+_SELF_SCAN_DENYLIST = (
+    "rm_validate/inference.py",
+    "rm_validate/profiles.py",
+    "rm_validate/checks/**",
+    "tests/**",
+    "examples/**",
+)
+
+
+def _is_self_scan(repo: Path, project: str) -> bool:
+    return project == "rm-tooling" and (repo / "rm_validate" / "__init__.py").is_file()
 
 
 def _iter_files(repo: Path, exclude_globs: list[str]) -> list[Path]:
@@ -171,12 +175,18 @@ def _iter_files(repo: Path, exclude_globs: list[str]) -> list[Path]:
     return files
 
 
-def infer(
-    repo: Path, exclude_globs: list[str], raw_config: dict[str, Any] | None = None
-) -> InferenceResult:
-    """Run capability inference over ``repo`` and return per-capability evidence."""
-    rules = _rules_from_config(raw_config)
-    files = _iter_files(repo, exclude_globs)
+def infer(repo: Path, project: str = "") -> InferenceResult:
+    """Run capability inference over ``repo`` and return per-capability evidence.
+
+    The scan surface is fixed (structural excludes, plus the internal self-scan
+    deny-list for rm-tooling itself). It cannot be narrowed from a policy — that
+    would let a repo hide capability evidence from the mismatch lock.
+    """
+    excludes = list(_STRUCTURAL_EXCLUDES)
+    if _is_self_scan(repo, project):
+        excludes += list(_SELF_SCAN_DENYLIST)
+    rules = DEFAULT_RULES
+    files = _iter_files(repo, excludes)
     rel_paths = [p.relative_to(repo).as_posix() for p in files]
 
     # Read text files once (bounded) so greps do not re-open files per signal.

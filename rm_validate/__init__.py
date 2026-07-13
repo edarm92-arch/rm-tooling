@@ -5,4 +5,4 @@ rule, path and pattern comes from the target's own ``rm-policy.yaml``; the
 package ships only the mechanism, never project-specific knowledge.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

@@ -39,6 +39,11 @@ DEFAULT_EXCLUDE_GLOBS = [
 ]
 
 
+# Globs that match the whole tree — banned in any exclusion list (a repo must
+# not be able to exclude everything and blind every check at once).
+_TOTAL_GLOBS = {"**", "*", ".", "./**", "**/*", "**/**", "./"}
+
+
 @dataclass
 class Modularity:
     code_soft: int = 300
@@ -46,7 +51,10 @@ class Modularity:
     context_hard: int = 500
     code_globs: list[str] = field(default_factory=lambda: list(DEFAULT_CODE_GLOBS))
     context_globs: list[str] = field(default_factory=lambda: list(DEFAULT_CONTEXT_GLOBS))
+    # exclude_globs = structural defaults + extras; extra_excludes = only the
+    # hand-declared ones (surfaced as a WARNING; structural defaults stay silent).
     exclude_globs: list[str] = field(default_factory=lambda: list(DEFAULT_EXCLUDE_GLOBS))
+    extra_excludes: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -82,12 +90,7 @@ class SecurityConfig:
 
 @dataclass
 class ForbiddenImportRule:
-    """A generic import-edge ban, expressed as globs of files.
-
-    Files matching any ``src`` glob must not import first-party modules whose
-    file matches any ``dst`` glob. This backs the layer-agnostic
-    ``forbidden_deps`` fitness check.
-    """
+    """A generic import-edge ban: ``src`` files must not import ``dst`` files."""
 
     name: str
     src: list[str]
@@ -109,18 +112,9 @@ class Config:
     layering_patterns: dict[str, list[str]]
     forbidden_imports: list[ForbiddenImportRule]
     secrets_patterns: list[str]
-    # Scope for no_circular_dependencies. Default is Python-only, matching the
-    # languages that support a precise import graph in v0.1.0.
+    # Scope for no_circular_dependencies (Python-only — the graph-capable langs).
     graph_scope: list[str] = field(default_factory=lambda: ["**/*.py"])
-    # Globs excluded from capability inference specifically (on top of the
-    # modularity excludes). Useful for repos that are themselves scanners: the
-    # files defining detection patterns would otherwise self-trigger.
-    inference_exclude: list[str] = field(default_factory=list)
     raw: dict[str, Any] = field(default_factory=dict)
-
-    def inference_excludes(self) -> list[str]:
-        """Exclude globs used for capability inference (modularity + inference)."""
-        return self.modularity.exclude_globs + self.inference_exclude
 
     # --- derived helpers -------------------------------------------------
 
@@ -128,11 +122,7 @@ class Config:
         return [name for name, on in self.fitness_functions.items() if on]
 
     def missing_layering(self) -> list[tuple[str, str]]:
-        """(fitness_function, missing_key) pairs for the layering config lock.
-
-        A fitness function that is enabled but lacks its declared layer globs
-        is a config-integrity failure (fails even in ``warning`` mode).
-        """
+        """(fitness_function, missing_key) pairs for the layering config lock."""
         declared = set(self.layering_patterns.keys())
         pairs: list[tuple[str, str]] = []
         for fn in self.enabled_fitness_functions():
@@ -162,6 +152,14 @@ def find_policy(repo: Path) -> Path | None:
 
 
 def _build_config(path: Path, data: dict[str, Any]) -> Config:
+    if "inference" in data:
+        # Removed in v0.1.1: an inference-exclude switch let a repo silence the
+        # capability-mismatch lock from the very file the lock must police.
+        raise ConfigError(
+            "'inference' is not configurable: inference cannot be excluded from a "
+            "policy (it would hide evidence from the capability-mismatch lock). "
+            "Fix a false positive by improving the pattern upstream, not locally."
+        )
     profile = str(data.get("extends", "static"))
     try:
         resolved = resolve_profile(profile)
@@ -215,15 +213,14 @@ def _build_config(path: Path, data: dict[str, Any]) -> Config:
         forbidden_imports=_parse_forbidden(data.get("forbidden_imports") or []),
         secrets_patterns=[str(p) for p in (data.get("secrets_patterns") or [])],
         graph_scope=[str(g) for g in (data.get("graph_scope") or ["**/*.py"])],
-        inference_exclude=_parse_inference_exclude(data.get("inference") or {}),
         raw=data,
     )
 
 
-def _parse_inference_exclude(inf: dict[str, Any]) -> list[str]:
-    if not isinstance(inf, dict):
-        raise ConfigError("'inference' must be a mapping")
-    return [str(g) for g in (inf.get("exclude") or [])]
+def _reject_total_globs(globs: list[str], where: str) -> None:
+    for g in globs:
+        if g.strip() in _TOTAL_GLOBS or g.strip().rstrip("/") in _TOTAL_GLOBS:
+            raise ConfigError(f"{where}: '{g}' excludes the whole repo — not allowed.")
 
 
 def _parse_modularity(m: dict[str, Any]) -> Modularity:
@@ -237,8 +234,13 @@ def _parse_modularity(m: dict[str, Any]) -> Modularity:
         out.code_globs = [str(g) for g in m["code_globs"]]
     if m.get("context_globs"):
         out.context_globs = [str(g) for g in m["context_globs"]]
-    if m.get("exclude_globs"):
-        out.exclude_globs = [str(g) for g in m["exclude_globs"]]
+    declared = [str(g) for g in (m.get("exclude_globs") or [])]
+    _reject_total_globs(declared, "modularity.exclude_globs")
+    # Structural defaults are always kept (silent hygiene); hand-declared extras
+    # are additive AND surfaced as WARNINGs, so reduced surface is never invisible.
+    extra = [g for g in declared if g not in DEFAULT_EXCLUDE_GLOBS]
+    out.extra_excludes = extra
+    out.exclude_globs = list(DEFAULT_EXCLUDE_GLOBS) + extra
     return out
 
 

@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from rm_validate.checks.registry import CAPABILITY, FITNESS, all_specs
-from rm_validate.config import DEFAULT_EXCLUDE_GLOBS
 from rm_validate.inference import InferenceResult, infer
 from rm_validate.profiles import ALL_CAPABILITIES
 
@@ -33,7 +32,7 @@ class InitResult:
 
 
 def run_init(repo: Path, *, force: bool = False, write: bool = True) -> InitResult:
-    inferred = infer(repo, list(DEFAULT_EXCLUDE_GLOBS))
+    inferred = infer(repo, repo.name)
     profile = inferred.suggested_profile()
     yaml_text = _render_policy(repo.name, profile, inferred)
 

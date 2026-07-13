@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from rm_validate.config import DEFAULT_EXCLUDE_GLOBS
 from rm_validate.globs import match_glob
 from rm_validate.inference import infer
 
@@ -22,7 +21,7 @@ def test_infer_database_from_migrations(make_repo) -> None:
         "migrations/0001_init.sql": "CREATE TABLE t (id int);",
         "app/models.py": "import sqlalchemy\n",
     })
-    result = infer(repo, list(DEFAULT_EXCLUDE_GLOBS))
+    result = infer(repo, "sample")
     ev = result.capabilities["has_database"]
     assert ev.detected
     assert result.suggested_profile() in ("app", "platform")
@@ -33,7 +32,7 @@ def test_infer_auth_and_profile(make_repo) -> None:
         "auth/login.py": "password_hash = bcrypt.hash(x)\n",
         "migrations/0001.sql": "select 1;",
     })
-    result = infer(repo, list(DEFAULT_EXCLUDE_GLOBS))
+    result = infer(repo, "sample")
     assert result.capabilities["has_auth"].detected
     assert result.suggested_profile() == "app"
 
@@ -45,7 +44,7 @@ def test_docs_do_not_trigger_inference(make_repo) -> None:
         "README.md": "We use stripe and emit webhooks and run openai agents.\n",
         "main.py": "print('hello')\n",
     })
-    result = infer(repo, list(DEFAULT_EXCLUDE_GLOBS))
+    result = infer(repo, "sample")
     assert not result.capabilities["handles_payments"].detected
     assert not result.capabilities["emits_webhooks"].detected
     assert result.suggested_profile() == "static"

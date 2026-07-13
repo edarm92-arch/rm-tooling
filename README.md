@@ -192,9 +192,17 @@ forbidden_imports:              # optional generic import-edge bans
   - name: "adapters must not import domain internals"
     src: ["app/adapters/**"]
     dst: ["app/domain/_internal/**"]
-inference:
-  exclude: []                   # files to skip during capability inference
 ```
+
+> **Capability inference cannot be excluded from a policy.** There is no
+> `inference:` key — an inference-exclude switch would let a repo silence the
+> capability-mismatch lock from the very file the lock must police. Fix a false
+> positive by improving the detection pattern **upstream** in rm-tooling (a PR
+> that benefits everyone), never by a local switch. A total-repo exclusion glob
+> (`**`, `*`, `.`) in any exclusion list is a config error, and any
+> **hand-declared** `modularity.exclude_globs` entry is surfaced as a
+> `WARNING inference_exclusion` (structural excludes like `node_modules` stay
+> silent). A judge the accused can switch off is not a judge.
 
 Full, annotated examples for each profile live in
 [`examples/`](examples/) (`static`, `app`, `platform`).
