@@ -1,0 +1,50 @@
+# Example policy — profile: app
+# A typical web application: database + auth, layered domain/infrastructure/ui,
+# migrations expected. Universal base plus capability-gated DB checks.
+
+version: "0.1.0"
+project: "example-app"
+
+extends: app                     # preset: has_database + has_auth
+capabilities:
+  has_database: true             # evidence: migrations/ + ORM imports
+  has_auth: true                 # evidence: auth/ package + password hashing
+  multi_tenant: false
+
+enforcement:
+  mode: "warning"
+  require_profile_adr: true
+  capability_mismatch_fails: true
+  baseline_ratchet:
+    enabled: false               # set true when adopting on an existing codebase
+    baseline_file: ".rm/baseline.json"
+    block_only_new_violations: true
+
+modularity:
+  code_file_lines: { soft: 300, hard: 500 }
+  context_file_lines: { hard: 500 }
+
+fitness_functions:
+  no_circular_dependencies: true
+  domain_must_not_import_infrastructure: true
+  ui_must_not_access_db_directly: true
+  engines_must_be_pure: true
+
+# Declared explicitly for every layering check enabled above.
+layering_patterns:
+  domain: ["app/domain/**", "app/services/**"]
+  infrastructure: ["app/infra*/**", "app/adapters/**"]
+  ui: ["app/**/components/**", "frontend/**"]
+  db_access: ["**/db.py", "**/repositories/**"]
+  engines: ["**/engines/**", "**/*_engine.py"]
+
+prompt_gate:
+  required_sections:
+    - objetivo
+    - criterios_de_aceptacion
+    - rollback
+  paths: ["prompts/**/*.md"]
+
+security:
+  no_secrets_in_repo: true
+  dependency_scan_in_ci: true

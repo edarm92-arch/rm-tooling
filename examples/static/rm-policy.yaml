@@ -1,0 +1,35 @@
+# Example policy — profile: static
+# A standalone library or CLI: universal base + modularity + a couple of
+# layer-agnostic / pure-engine fitness checks. No database, auth or surfaces.
+
+version: "0.1.0"
+project: "example-static"
+
+extends: static
+capabilities: {}                 # nothing beyond the universal base
+
+enforcement:
+  mode: "warning"                # start advisory; flip to "blocking" once stable
+  require_profile_adr: true      # add ADR/0001-perfil-static.md
+  capability_mismatch_fails: true
+
+modularity:
+  code_file_lines: { soft: 300, hard: 500 }
+  context_file_lines: { hard: 500 }
+
+fitness_functions:
+  no_circular_dependencies: true
+  engines_must_be_pure: true     # a library often ships pure, generic engines
+
+# Required because engines_must_be_pure is on. Layers are ALWAYS declared by
+# hand — the validator never infers folder conventions.
+layering_patterns:
+  engines: ["**/engines/**", "**/*_engine.py"]
+
+prompt_gate:
+  required_sections: []
+  paths: []
+
+security:
+  no_secrets_in_repo: true
+  dependency_scan_in_ci: true

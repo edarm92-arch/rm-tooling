@@ -1,0 +1,77 @@
+# Example policy — profile: platform
+# A multi-tenant platform exposing API + MCP + webhooks, with agents. Every
+# capability-gated rule applies; all layering checks are on, including
+# server-side-only mutations.
+
+version: "0.1.0"
+project: "example-platform"
+
+extends: platform
+capabilities:
+  has_database: true
+  has_auth: true
+  multi_tenant: true
+  exposes_public_api: true
+  emits_webhooks: true
+  exposes_mcp: true
+  has_agents: true
+  handles_payments: false        # this platform does not process payments itself
+
+enforcement:
+  mode: "blocking"               # a mature platform blocks on severity
+  require_profile_adr: true
+  capability_mismatch_fails: true
+  baseline_ratchet:
+    enabled: true                # large codebase adopted via ratchet
+    baseline_file: ".rm/baseline.json"
+    block_only_new_violations: true
+
+modularity:
+  code_file_lines: { soft: 300, hard: 500 }
+  context_file_lines: { hard: 500 }
+
+fitness_functions:
+  no_circular_dependencies: true
+  domain_must_not_import_infrastructure: true
+  ui_must_not_access_db_directly: true
+  engines_must_be_pure: true
+  mutations_server_side_only: true
+
+layering_patterns:
+  domain: ["app/domain/**", "app/services/**"]
+  infrastructure: ["app/infra*/**", "app/adapters/**"]
+  ui: ["app/**/components/**", "frontend/**"]
+  db_access: ["**/db.py", "**/repositories/**"]
+  engines: ["**/engines/**", "**/*_engine.py"]
+  server_mutations: ["**/routes/**", "**/api/**"]   # target for mutations_server_side_only
+
+# Cycle detection is Python-only in v0.1.0; scope it to Python paths so it never
+# matches TS files it cannot graph (which would fail as config incompleta).
+graph_scope: ["app/**/*.py"]
+
+# Optional generic import-edge bans beyond the named layers.
+forbidden_imports:
+  - name: "adapters must not import domain internals"
+    src: ["app/adapters/**"]
+    dst: ["app/domain/_internal/**"]
+
+prompt_gate:
+  required_sections:
+    - objetivo
+    - alcance_hace_no_hace
+    - criterios_de_aceptacion
+    - decisiones_lockeadas
+    - cambios_por_capa
+    - migraciones_si_aplica
+    - tests_verificacion
+    - evidencia_de_verificacion
+    - changelog_y_bump
+    - mapeo_dependencias
+    - rollback
+    - qa_checklist
+    - notas_de_verificacion
+  paths: ["prompts/**/*.md"]
+
+security:
+  no_secrets_in_repo: true
+  dependency_scan_in_ci: true

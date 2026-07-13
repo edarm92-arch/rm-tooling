@@ -1,0 +1,46 @@
+# rm-policy.yaml — rm-tooling's own policy (the validator validates itself).
+# Profile: static. rm-tooling is a standalone CLI with no persistent state and
+# no network surfaces, so it carries only the universal base + file limits +
+# prompt gate + a layer-agnostic cycle check. See ADR/0001-perfil-static.md.
+
+version: "0.1.0"
+project: "rm-tooling"
+
+extends: static
+capabilities: {}          # a standalone CLI — no store, no sign-in, no surfaces
+
+enforcement:
+  mode: "warning"
+  require_profile_adr: true
+  capability_mismatch_fails: true
+  adr_glob: "ADR/*perfil*.md"
+  baseline_ratchet:
+    enabled: false
+
+modularity:
+  code_file_lines: { soft: 300, hard: 500 }
+  context_file_lines: { hard: 500 }
+
+# Only the layer-agnostic cycle check is on; no layering_patterns are declared
+# because no layer-based fitness function is enabled (see PARTE 4 of the spec).
+fitness_functions:
+  no_circular_dependencies: true
+
+prompt_gate:
+  required_sections: []
+  paths: []
+
+security:
+  no_secrets_in_repo: true
+  dependency_scan_in_ci: true
+
+# rm-tooling is itself a scanner: its detection patterns live in these files and
+# would otherwise self-trigger capability inference. Exclude them from inference
+# (not from the cycle check or file limits, which still cover the whole package).
+inference:
+  exclude:
+    - "rm_validate/inference.py"   # defines the capability grep patterns
+    - "rm_validate/profiles.py"    # defines the capability vocabulary names
+    - "rm_validate/checks/**"      # secrets/db/mcp detection signatures
+    - "tests/**"                   # fixtures are not the app's real code
+    - "examples/**"                # sample policies, not code
