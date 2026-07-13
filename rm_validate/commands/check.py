@@ -31,7 +31,7 @@ def run_check(repo: Path) -> Outcome:
     config = Config.load(policy)
     all_files = _collect_files(repo, config.modularity.exclude_globs)
     py_files = [p for p in all_files if p.suffix == ".py"]
-    inferred = infer(repo, config.inference_excludes(), config.raw)
+    inferred = infer(repo, config.project)
     ctx = CheckContext(
         repo=repo, config=config, inferred=inferred, py_files=py_files, all_files=all_files
     )

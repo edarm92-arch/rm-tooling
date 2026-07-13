@@ -19,6 +19,7 @@ from rm_validate.checks import (
     capability_mismatch,
     db,
     file_limits,
+    inference_exclusion,
     layering_lock,
     prompt_gate,
 )
@@ -114,6 +115,11 @@ REGISTRY: list[CheckSpec] = [
         "prompt_gate", UNIVERSAL, prompt_gate.run,
         "Executable prompts contain all required sections.",
         "prompt_gate.required_sections + prompt_gate.paths",
+    ),
+    CheckSpec(
+        "inference_exclusion", UNIVERSAL, inference_exclusion.run,
+        "Hand-declared excludes are surfaced (never silently reduce a check's surface).",
+        "modularity.exclude_globs (hand-declared entries)",
     ),
     # --- capability-gated ----------------------------------------------------
     CheckSpec(

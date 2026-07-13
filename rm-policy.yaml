@@ -34,13 +34,8 @@ security:
   no_secrets_in_repo: true
   dependency_scan_in_ci: true
 
-# rm-tooling is itself a scanner: its detection patterns live in these files and
-# would otherwise self-trigger capability inference. Exclude them from inference
-# (not from the cycle check or file limits, which still cover the whole package).
-inference:
-  exclude:
-    - "rm_validate/inference.py"   # defines the capability grep patterns
-    - "rm_validate/profiles.py"    # defines the capability vocabulary names
-    - "rm_validate/checks/**"      # secrets/db/mcp detection signatures
-    - "tests/**"                   # fixtures are not the app's real code
-    - "examples/**"                # sample policies, not code
+# Note: rm-tooling is itself a scanner, so its own detection-pattern files would
+# self-trigger capability inference. That is handled by an INTERNAL, versioned
+# deny-list in rm_validate/inference.py (applied only to rm-tooling itself) — not
+# by an exclusion key in this file. Inference exclusion is deliberately not
+# configurable: it would let any repo silence the capability-mismatch lock.

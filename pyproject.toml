@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rm-validate"
-version = "0.1.0"
+version = "0.1.1"
 description = "Generic policy validator for the RM Method — init/check/explain over any repo, driven entirely by rm-policy.yaml."
 readme = "README.md"
 requires-python = ">=3.11"
