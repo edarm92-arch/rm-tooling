@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.1] — Cierre del bypass de inferencia (fix de seguridad del harness)
 
+### Added
+- Distribución: workflow de release a PyPI vía Trusted Publishing (OIDC, sin
+  token almacenado); un tag `v*` dispara verify (lint+types+tests+audit+self-check)
+  y recién después publica. README con sección de instalación (`pipx install
+  rm-validate`) y badges (PyPI, CI, licencia).
+
 ### Security
 - `inference.exclude` deja de existir como clave pública: permitía silenciar el
   candado de capability-mismatch desde el mismo `rm-policy.yaml` que el candado
@@ -30,6 +36,9 @@ All notable changes to this project are documented here. The format follows
   y aplicada solo a rm-tooling (paquete `rm_validate/` presente + `project:
   rm-tooling`), no con configuración expuesta al consumidor.
 - CI propio: `pip-audit` corre sin `|| true`.
+- `pyproject.toml`: las URLs del proyecto apuntaban a un repo inexistente
+  (`github.com/rm-tooling/rm-validate`) → corregidas a `edarm92-arch/rm-tooling`
+  (+ Issues y Changelog).
 
 ## [0.1.0] — rm-policy-validator inicial (público, Apache-2.0)
 
